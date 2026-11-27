@@ -1,0 +1,584 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>StudyMesh | Open Agentic Student Network</title>
+  <meta name="description" content="Decentralized browser-run multi-agent web network for student deadline planning, DSA hint ladders, and CS concept explanations.">
+  
+  <!-- Open Agentic Web Discovery Link -->
+  <link rel="agent-manifest" href="agent-manifest.json">
+  
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <!-- Header -->
+  <header class="app-header" role="banner">
+    <div class="header-container">
+      <div class="brand-section">
+        <div class="brand-icon" aria-hidden="true">Ω</div>
+        <div>
+          <h1 class="brand-title">StudyMesh</h1>
+          <p class="brand-badge">Open Agentic Web Profile 0.3</p>
+        </div>
+      </div>
+      <div class="header-controls">
+        <span id="runtime-status-badge" class="brand-badge" style="background:var(--success-bg); color:var(--success); border-color:var(--success);">
+          ● Ready (Browser-Native)
+        </span>
+        <button id="theme-toggle" class="theme-toggle-btn" aria-label="Toggle theme">
+          <span id="theme-icon" aria-hidden="true">🌓</span>
+          <span id="theme-text">Theme</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Content -->
+  <main class="app-main" id="main-content">
+    <!-- Collapsible LLM Settings Panel -->
+    <details class="collapsible-card" id="llm-settings-card">
+      <summary>
+        <span>⚙️ LLM Router & Inference Settings (BYOK / Privacy Sandbox)</span>
+        <span id="active-model-indicator" style="font-size:0.8rem; font-weight:normal; color:var(--text-muted);">
+          Endpoint: Otari API (BYOK)
+        </span>
+      </summary>
+      <div class="collapsible-content">
+        <p class="form-helper" style="margin-bottom: 1rem;">
+          StudyMesh executes all agent networks client-side. Supply an OpenAI-compatible or Mozilla Otari API key, stored <strong>strictly in browser sessionStorage</strong>. Keys are never transmitted in manifests, URLs, or logs. If no key is set, the runtime seamlessly runs using the local offline agent engine.
+        </p>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1rem;">
+          <div class="form-group">
+            <label for="llm-endpoint">LLM Router Endpoint:</label>
+            <input type="url" id="llm-endpoint" class="form-control" value="https://api.otari.ai/api/v1" placeholder="https://api.otari.ai/api/v1">
+          </div>
+          <div class="form-group">
+            <label for="llm-model">Model Identifier:</label>
+            <input type="text" id="llm-model" class="form-control" value="meta-llama/Llama-3.3-70B-Instruct" placeholder="e.g. meta-llama/Llama-3.3-70B-Instruct or gpt-4o-mini">
+          </div>
+        </div>
+        <div class="form-group">
+          <label for="llm-api-key">API Key (Stored in sessionStorage only):</label>
+          <input type="password" id="llm-api-key" class="form-control" placeholder="sk-..." autocomplete="off">
+          <p class="form-helper">Session-only storage: discarded when browser tab closes.</p>
+        </div>
+        <div class="btn-row">
+          <button id="save-settings-btn" class="btn btn-primary btn-sm">Save to Session</button>
+          <button id="clear-settings-btn" class="btn btn-secondary btn-sm">Clear Key (Use Offline Engine)</button>
+          <button id="preset-otari-btn" class="btn btn-secondary btn-sm">Reset to Otari Router</button>
+        </div>
+      </div>
+    </details>
+
+    <!-- Collapsible Peer Discovery Panel -->
+    <details class="collapsible-card" id="peer-discovery-card">
+      <summary>
+        <span>🌐 Peer Agent Network Discovery (Cross-Site Import)</span>
+        <span style="font-size:0.8rem; font-weight:normal; color:var(--text-muted);">Decentralized Linkage</span>
+      </summary>
+      <div class="collapsible-content">
+        <p class="form-helper" style="margin-bottom: 0.75rem;">
+          Import an external peer agent website by entering its <code>agent-manifest.json</code> URL. Fetches run with CORS and require explicit user consent via the trust gate before linking.
+        </p>
+        <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+          <input type="url" id="peer-url-input" class="form-control" style="flex: 1; min-width: 250px;" placeholder="https://peer-site.example/agent-manifest.json">
+          <button id="import-peer-btn" class="btn btn-secondary">Import Peer</button>
+        </div>
+        <div id="peer-list" style="margin-top: 0.75rem; font-size: 0.85rem; color: var(--text-muted);">
+          Connected Peers: None (Local agents active: study_coordinator, deadline_planner, dsa_coach, concept_explainer)
+        </div>
+      </div>
+    </details>
+
+    <!-- Workspace Grid: Query Box, Output, and Trace -->
+    <div class="grid-workspace">
+      <!-- Left Column: Input and Unified Answer -->
+      <section class="card-panel" aria-labelledby="query-heading">
+        <h2 id="query-heading" class="section-heading">
+          <span>Student Study Request</span>
+          <span id="llm-status-pill" class="brand-badge" style="background:var(--accent-light); color:var(--accent);">
+            Engine: Local Offline Ready
+          </span>
+        </h2>
+
+        <!-- Quick Sample Prompts -->
+        <div class="sample-prompts" role="group" aria-label="Sample study inquiries">
+          <button class="prompt-pill" data-prompt="Plan my finals week: OS project and Algorithms exam, with 16 available study hours.">
+            📅 Finals Plan (16 hrs)
+          </button>
+          <button class="prompt-pill" data-prompt="Give me a hint ladder for Two Sum without showing the full code solution.">
+            🧩 Two Sum Hint Ladder
+          </button>
+          <button class="prompt-pill" data-prompt="Explain Virtual Memory and Paging with an analogy and a small example.">
+            💡 Virtual Memory Analogy
+          </button>
+          <button class="prompt-pill" data-prompt="Explain Recursion with an analogy, then give me a 3-day study schedule for Binary Trees with 10 study hours.">
+            🚀 Combined: Recursion & Schedule
+          </button>
+        </div>
+
+        <form id="study-form">
+          <div class="form-group">
+            <label for="user-query">Enter your study problem, algorithm question, or deadline:</label>
+            <textarea id="user-query" class="form-control request-area" rows="4" placeholder="e.g., I have an Operating Systems assignment and Algorithms exam next week with 14 hours available. Also explain deadlock with an analogy."></textarea>
+          </div>
+
+          <div class="submit-actions">
+            <span class="shortcut-hint">Press <strong>Ctrl + Enter</strong> to submit</span>
+            <div style="display:flex; gap:0.5rem;">
+              <button type="button" id="clear-query-btn" class="btn btn-secondary">Clear</button>
+              <button type="submit" id="run-btn" class="btn btn-primary">Run Multi-Agent Graph</button>
+            </div>
+          </div>
+        </form>
+
+        <!-- Output Answer Panel -->
+        <div style="margin-top: 1.5rem;">
+          <div style="display: flex; justify-content: space-between; align-items: center;">
+            <h3 style="font-size: 1.05rem; font-weight: 700;">Coordinator Synthesis Answer</h3>
+            <button id="copy-btn" class="btn btn-secondary btn-sm" style="display:none;" aria-label="Copy response to clipboard">
+              📋 Copy Brief
+            </button>
+          </div>
+          <div id="answer-container" class="answer-box" aria-live="polite">
+            <p style="color:var(--text-muted); font-style: italic;">
+              Select a sample prompt above or enter your study question to run the browser multi-agent network.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <!-- Right Column: Live Agent Trace -->
+      <section class="card-panel trace-panel" aria-labelledby="trace-heading">
+        <div class="section-heading">
+          <h2 id="trace-heading" style="font-size: 1.15rem;">Live Agent Trace</h2>
+          <button id="clear-trace-btn" class="btn btn-secondary btn-sm">Clear Trace</button>
+        </div>
+        <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.5rem;">
+          Observability timeline showing coordinator routing, trust gate consent verification, and execution.
+        </p>
+        <div id="trace-timeline" class="trace-timeline" role="log" aria-live="polite">
+          <!-- Trace items dynamically appended here -->
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <!-- Native Consent Dialog with closedby="any" attribute -->
+  <dialog id="consent-dialog" closedby="any" aria-labelledby="consent-title">
+    <div class="dialog-header">
+      <span class="dialog-shield-icon" aria-hidden="true">🛡️</span>
+      <h3 id="consent-title" class="dialog-title">Specialist Agent Delegation Request</h3>
+    </div>
+    <div class="dialog-body">
+      <p>The <strong>study_coordinator</strong> is delegating a task to a specialist agent:</p>
+      <div class="dialog-field">
+        <strong style="display:block; font-size:0.8rem; color:var(--text-muted);">Target Specialist Agent:</strong>
+        <span id="consent-agent-name" style="font-family:var(--font-mono); font-weight:bold; color:var(--accent);">--</span>
+      </div>
+      <div class="dialog-field">
+        <strong style="display:block; font-size:0.8rem; color:var(--text-muted);">Action to Execute:</strong>
+        <span id="consent-action-text">--</span>
+      </div>
+      <div>
+        <div class="privacy-badge-container">
+          <span aria-hidden="true">🔒</span>
+          <span id="consent-context-note">Private context shared: NONE</span>
+        </div>
+      </div>
+      <p style="font-size:0.8rem; color:var(--text-muted);">
+        You maintain full sovereignty over each agent step. Declining will cleanly cancel this specialist task without interrupting the rest of your study plan.
+      </p>
+    </div>
+    <div class="dialog-actions">
+      <button type="button" id="consent-decline-btn" class="btn btn-secondary">Decline Step</button>
+      <button type="button" id="consent-approve-btn" class="btn btn-primary">Authorize Agent</button>
+    </div>
+  </dialog>
+
+  <!-- Footer with Spec Artifact Links -->
+  <footer class="app-footer" role="contentinfo">
+    <div class="footer-container">
+      <div>
+        <p><strong>StudyMesh</strong> &bull; Decentralized Multi-Agent Web Network</p>
+        <p style="font-size:0.75rem; color:var(--text-subtle);">
+          Built for the Open Agentic Web Challenge (Cognizant AI Lab, MIT NANDA, Mozilla Otari)
+        </p>
+      </div>
+      <nav class="footer-links" aria-label="Specification and manifest links">
+        <a href="agent-manifest.json" target="_blank" rel="noopener">agent-manifest.json</a>
+        <a href="studymesh.network.json" target="_blank" rel="noopener">studymesh.network.json</a>
+        <a href=".well-known/nsdeploy.json" target="_blank" rel="noopener">.well-known/nsdeploy.json</a>
+        <a href="https://github.com/cognizant-ai-labs/agentic-web" target="_blank" rel="noopener noreferrer">Official Spec</a>
+      </nav>
+    </div>
+  </footer>
+
+  <!-- App Bootstrap Module -->
+  <script type="module">
+    import { StudyMeshRuntime } from './runtime.js';
+
+    // UI Elements
+    const queryInput = document.getElementById('user-query');
+    const studyForm = document.getElementById('study-form');
+    const runBtn = document.getElementById('run-btn');
+    const clearQueryBtn = document.getElementById('clear-query-btn');
+    const answerContainer = document.getElementById('answer-container');
+    const copyBtn = document.getElementById('copy-btn');
+    const traceTimeline = document.getElementById('trace-timeline');
+    const clearTraceBtn = document.getElementById('clear-trace-btn');
+    const consentDialog = document.getElementById('consent-dialog');
+    const consentAgentName = document.getElementById('consent-agent-name');
+    const consentActionText = document.getElementById('consent-action-text');
+    const consentContextNote = document.getElementById('consent-context-note');
+    const consentApproveBtn = document.getElementById('consent-approve-btn');
+    const consentDeclineBtn = document.getElementById('consent-decline-btn');
+    const themeToggleBtn = document.getElementById('theme-toggle');
+    const themeIcon = document.getElementById('theme-icon');
+    const llmEndpointInput = document.getElementById('llm-endpoint');
+    const llmModelInput = document.getElementById('llm-model');
+    const llmApiKeyInput = document.getElementById('llm-api-key');
+    const saveSettingsBtn = document.getElementById('save-settings-btn');
+    const clearSettingsBtn = document.getElementById('clear-settings-btn');
+    const presetOtariBtn = document.getElementById('preset-otari-btn');
+    const llmStatusPill = document.getElementById('llm-status-pill');
+    const peerUrlInput = document.getElementById('peer-url-input');
+    const importPeerBtn = document.getElementById('import-peer-btn');
+    const peerListContainer = document.getElementById('peer-list');
+
+    // Theme Management
+    function initTheme() {
+      const savedTheme = localStorage.getItem('studymesh_theme');
+      if (savedTheme) {
+        document.documentElement.setAttribute('data-theme', savedTheme);
+        themeIcon.textContent = savedTheme === 'dark' ? '🌙' : '☀️';
+      } else if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+        themeIcon.textContent = '🌙';
+      } else {
+        themeIcon.textContent = '☀️';
+      }
+    }
+
+    themeToggleBtn.addEventListener('click', () => {
+      const current = document.documentElement.getAttribute('data-theme');
+      const isDark = current === 'dark' || (!current && window.matchMedia('(prefers-color-scheme: dark)').matches);
+      const nextTheme = isDark ? 'light' : 'dark';
+      document.documentElement.setAttribute('data-theme', nextTheme);
+      localStorage.setItem('studymesh_theme', nextTheme);
+      themeIcon.textContent = nextTheme === 'dark' ? '🌙' : '☀️';
+    });
+
+    initTheme();
+
+    // SessionStorage LLM Config Handling
+    function updateLLMUI() {
+      const key = sessionStorage.getItem('studymesh_api_key');
+      const endpoint = sessionStorage.getItem('studymesh_llm_endpoint');
+      const model = sessionStorage.getItem('studymesh_llm_model');
+
+      if (endpoint) llmEndpointInput.value = endpoint;
+      if (model) llmModelInput.value = model;
+      if (key) {
+        llmApiKeyInput.value = key;
+        llmStatusPill.textContent = '⚡ Online LLM Active';
+        llmStatusPill.style.background = 'var(--success-bg)';
+        llmStatusPill.style.color = 'var(--success)';
+        llmStatusPill.style.borderColor = 'var(--success)';
+      } else {
+        llmStatusPill.textContent = '🍃 Offline Engine Active';
+        llmStatusPill.style.background = 'var(--accent-light)';
+        llmStatusPill.style.color = 'var(--accent)';
+        llmStatusPill.style.borderColor = 'var(--border-color)';
+      }
+    }
+
+    saveSettingsBtn.addEventListener('click', () => {
+      const key = llmApiKeyInput.value.trim();
+      const endpoint = llmEndpointInput.value.trim();
+      const model = llmModelInput.value.trim();
+
+      if (key) {
+        sessionStorage.setItem('studymesh_api_key', key);
+      } else {
+        sessionStorage.removeItem('studymesh_api_key');
+      }
+
+      if (endpoint) sessionStorage.setItem('studymesh_llm_endpoint', endpoint);
+      if (model) sessionStorage.setItem('studymesh_llm_model', model);
+
+      updateLLMUI();
+      alert('LLM settings saved to sessionStorage.');
+    });
+
+    clearSettingsBtn.addEventListener('click', () => {
+      sessionStorage.removeItem('studymesh_api_key');
+      llmApiKeyInput.value = '';
+      updateLLMUI();
+      alert('API key removed from sessionStorage. StudyMesh will use the offline specialist engine.');
+    });
+
+    presetOtariBtn.addEventListener('click', () => {
+      llmEndpointInput.value = 'https://api.otari.ai/api/v1';
+      llmModelInput.value = 'meta-llama/Llama-3.3-70B-Instruct';
+      sessionStorage.setItem('studymesh_llm_endpoint', llmEndpointInput.value);
+      sessionStorage.setItem('studymesh_llm_model', llmModelInput.value);
+      updateLLMUI();
+    });
+
+    updateLLMUI();
+
+    // Trace Rendering
+    function appendTraceItem(event) {
+      const item = document.createElement('div');
+      item.className = 'trace-item';
+      item.innerHTML = `
+        <div class="trace-header">
+          <span class="agent-tag">@${escapeHtml(event.agent)}</span>
+          <span class="status-badge status-${event.status}">${event.status}</span>
+        </div>
+        <div class="trace-msg">${escapeHtml(event.message)}</div>
+        <div class="trace-footer">
+          <span>${event.timestamp}</span>
+          <span>Context: NONE</span>
+        </div>
+      `;
+      traceTimeline.appendChild(item);
+      traceTimeline.scrollTop = traceTimeline.scrollHeight;
+    }
+
+    clearTraceBtn.addEventListener('click', () => {
+      traceTimeline.innerHTML = '';
+    });
+
+    // Native Dialog Consent Controller
+    let pendingConsentResolver = null;
+
+    function promptConsentModal({ agent, action, contextNote }) {
+      return new Promise((resolve) => {
+        consentAgentName.textContent = agent;
+        consentActionText.textContent = action;
+        consentContextNote.textContent = contextNote || 'Private context shared: NONE';
+        pendingConsentResolver = resolve;
+
+        // Clean event handling on native dialog
+        const onCancel = (e) => {
+          e.preventDefault();
+          cleanup(false);
+        };
+
+        const onApprove = () => cleanup(true);
+        const onDecline = () => cleanup(false);
+
+        function cleanup(result) {
+          consentApproveBtn.removeEventListener('click', onApprove);
+          consentDeclineBtn.removeEventListener('click', onDecline);
+          consentDialog.removeEventListener('cancel', onCancel);
+          if (consentDialog.open) {
+            consentDialog.close();
+          }
+          if (pendingConsentResolver) {
+            const res = pendingConsentResolver;
+            pendingConsentResolver = null;
+            res(result);
+          }
+        }
+
+        consentApproveBtn.addEventListener('click', onApprove);
+        consentDeclineBtn.addEventListener('click', onDecline);
+        consentDialog.addEventListener('cancel', onCancel);
+
+        consentDialog.showModal();
+      });
+    }
+
+    // Initialize Runtime Instance
+    const runtime = new StudyMeshRuntime({
+      manifestUrl: 'agent-manifest.json',
+      onTrace: appendTraceItem,
+      requestConsent: promptConsentModal
+    });
+
+    // Expose StudyMesh to window for peer invocation & verification
+    window.StudyMesh = {
+      runtime,
+      run: (query) => runtime.processRequest(query),
+      getManifest: () => runtime.manifest,
+      getNetwork: () => runtime.network,
+      importPeer: (url) => runtime.importPeerNetwork(url)
+    };
+
+    // Initialize on load
+    runtime.init().catch(err => {
+      console.warn('Initial load handled in background:', err);
+    });
+
+    // Handle Form Submission
+    async function executeQuery() {
+      const query = queryInput.value.trim();
+      if (!query) {
+        alert('Please enter a query or choose a sample prompt.');
+        queryInput.focus();
+        return;
+      }
+
+      runBtn.disabled = true;
+      runBtn.textContent = 'Coordinating...';
+      answerContainer.innerHTML = '<p style="color:var(--text-muted); font-style:italic;">Agents coordinating response in browser...</p>';
+      copyBtn.style.display = 'none';
+
+      try {
+        const result = await runtime.processRequest(query);
+        renderFormattedMarkdown(result.answer, answerContainer);
+        copyBtn.style.display = 'inline-flex';
+      } catch (err) {
+        answerContainer.innerHTML = `<p style="color:var(--danger); font-weight:bold;">Execution error: ${escapeHtml(err.message)}</p>`;
+      } finally {
+        runBtn.disabled = false;
+        runBtn.textContent = 'Run Multi-Agent Graph';
+      }
+    }
+
+    studyForm.addEventListener('submit', (e) => {
+      e.preventDefault();
+      executeQuery();
+    });
+
+    // Keyboard Shortcut (Ctrl+Enter / Cmd+Enter)
+    queryInput.addEventListener('keydown', (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+        e.preventDefault();
+        executeQuery();
+      }
+    });
+
+    clearQueryBtn.addEventListener('click', () => {
+      queryInput.value = '';
+      answerContainer.innerHTML = '<p style="color:var(--text-muted); font-style: italic;">Select a sample prompt above or enter your study question to run the browser multi-agent network.</p>';
+      copyBtn.style.display = 'none';
+      queryInput.focus();
+    });
+
+    // Copy Brief Action
+    copyBtn.addEventListener('click', async () => {
+      const textToCopy = answerContainer.innerText;
+      try {
+        await navigator.clipboard.writeText(textToCopy);
+        const originalText = copyBtn.textContent;
+        copyBtn.textContent = '✅ Copied!';
+        setTimeout(() => {
+          copyBtn.textContent = originalText;
+        }, 2000);
+      } catch (err) {
+        alert('Could not copy to clipboard.');
+      }
+    });
+
+    // Quick Sample Prompts
+    document.querySelectorAll('.prompt-pill').forEach(btn => {
+      btn.addEventListener('click', () => {
+        queryInput.value = btn.getAttribute('data-prompt');
+        executeQuery();
+      });
+    });
+
+    // Peer Import Action
+    importPeerBtn.addEventListener('click', async () => {
+      const url = peerUrlInput.value.trim();
+      if (!url) {
+        alert('Please enter a valid peer manifest URL.');
+        return;
+      }
+
+      importPeerBtn.disabled = true;
+      importPeerBtn.textContent = 'Linking...';
+
+      const res = await runtime.importPeerNetwork(url);
+      importPeerBtn.disabled = false;
+      importPeerBtn.textContent = 'Import Peer';
+
+      if (res.success) {
+        peerListContainer.innerHTML = `<strong>Connected Peers:</strong> ${escapeHtml(res.brand)} (${res.agents.length} agents added: <code>${res.agents.join(', ')}</code>)`;
+      } else {
+        peerListContainer.innerHTML = `<span style="color:var(--danger);">Peer link failed: ${escapeHtml(res.error || res.reason)}</span>`;
+      }
+    });
+
+    // Safe Markdown Renderer without external libraries
+    function renderFormattedMarkdown(text, container) {
+      if (!text) {
+        container.innerHTML = '';
+        return;
+      }
+
+      // Convert code blocks
+      let html = text.replace(/```([a-z0-9]*)\n([\s\S]*?)```/gi, (match, lang, code) => {
+        return `<pre><code class="language-${lang}">${escapeHtml(code.trim())}</code></pre>`;
+      });
+
+      // Convert headers
+      html = html.replace(/^### (.*$)/gim, '<h3>$1</h3>');
+      html = html.replace(/^## (.*$)/gim, '<h2>$1</h2>');
+      html = html.replace(/^# (.*$)/gim, '<h1>$1</h1>');
+
+      // Convert bold and italic
+      html = html.replace(/\*\*(.*?)\*\*/gim, '<strong>$1</strong>');
+      html = html.replace(/\*(.*?)\*/gim, '<em>$1</em>');
+
+      // Convert blockquotes
+      html = html.replace(/^\> (.*$)/gim, '<blockquote>$1</blockquote>');
+
+      // Convert horizontal rules
+      html = html.replace(/^---$/gim, '<hr style="border:none; border-top:1px solid var(--border-color); margin:1rem 0;">');
+
+      // Convert Markdown Tables
+      html = html.replace(/((?:\|[^\n]+\|\r?\n)+)/g, (match) => {
+        const rows = match.trim().split(/\r?\n/).filter(r => r.includes('|'));
+        if (rows.length < 2) return match;
+        
+        let tableHtml = '<table><thead>';
+        const headers = rows[0].split('|').slice(1, -1).map(h => h.trim());
+        tableHtml += '<tr>' + headers.map(h => `<th>${escapeHtml(h)}</th>`).join('') + '</tr></thead><tbody>';
+
+        const dataRows = rows.slice(2); // Skip separator row
+        for (const row of dataRows) {
+          const cells = row.split('|').slice(1, -1).map(c => c.trim());
+          tableHtml += '<tr>' + cells.map(c => `<td>${escapeHtml(c)}</td>`).join('') + '</tr>';
+        }
+
+        tableHtml += '</tbody></table>';
+        return tableHtml;
+      });
+
+      // Convert inline code
+      html = html.replace(/`([^`]+)`/g, '<code>$1</code>');
+
+      // Convert line breaks outside pre/table
+      const paragraphs = html.split('\n\n').map(p => {
+        p = p.trim();
+        if (!p) return '';
+        if (p.startsWith('<h') || p.startsWith('<pre') || p.startsWith('<table') || p.startsWith('<blockquote') || p.startsWith('<hr')) {
+          return p;
+        }
+        return `<p>${p.replace(/\n/g, '<br>')}</p>`;
+      });
+
+      container.innerHTML = paragraphs.join('');
+    }
+
+    function escapeHtml(string) {
+      const div = document.createElement('div');
+      div.innerText = string;
+      return div.innerHTML;
+    }
+
+    // Auto-run if query param present (A2A / deep linking)
+    const urlParams = new URLSearchParams(window.location.search);
+    const initialQuery = urlParams.get('q') || urlParams.get('query');
+    if (initialQuery) {
+      queryInput.value = initialQuery;
+      executeQuery();
+    }
+  </script>
+</body>
+</html>

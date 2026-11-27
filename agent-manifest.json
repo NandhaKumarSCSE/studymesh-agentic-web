@@ -1,0 +1,23 @@
+{
+  "brand": "StudyMesh",
+  "description": "Decentralized browser-run multi-agent network for student deadline planning, DSA coaching, and CS concept explanation.",
+  "version": "1.0.0",
+  "networks": [
+    {
+      "name": "studymesh",
+      "front_man": "study_coordinator",
+      "hocon": "studymesh.network.json",
+      "network": "studymesh.network.json",
+      "description": "Student agent network with coordinator, deadline planner, DSA coach, and concept explainer."
+    }
+  ],
+  "llm_router": {
+    "endpoint": "https://api.otari.ai/api/v1",
+    "byok": true,
+    "default_model": "meta-llama/Llama-3.3-70B-Instruct"
+  },
+  "allowed_peers": [
+    "*"
+  ],
+  "peer_policy": "open"
+}
